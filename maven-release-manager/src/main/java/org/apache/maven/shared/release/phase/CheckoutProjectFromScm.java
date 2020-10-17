@@ -25,7 +25,7 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-
+import org.apache.maven.artifact.ArtifactUtils;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.scm.CommandParameter;
 import org.apache.maven.scm.CommandParameters;
@@ -239,6 +239,53 @@ public class CheckoutProjectFromScm
             scmRelativePathProjectDirectory = workingDirectory.relativize( rootProjectBasedir ).toString();
         }
         releaseDescriptor.setScmRelativePathProjectDirectory( scmRelativePathProjectDirectory );
+
+        if (releaseDescriptor.isCommitByProject()) {
+            // Now check out all the child modules if they're in separate SCM
+            for(MavenProject project : reactorProjects) {
+                CommandParameters subParms = new CommandParameters();
+                subParms.setString( CommandParameter.SHALLOW, Boolean.TRUE.toString() );
+
+                if(ReleaseUtil.getRootProject( reactorProjects ) == project) continue;
+
+                final String projectKey = ArtifactUtils.versionlessKey(project.getGroupId(), project.getArtifactId());
+                ScmRepository subRepo =
+                    scmRepositoryConfigurator.getConfiguredRepository(
+                        releaseDescriptor.getOriginalScmInfo(projectKey).getConnection(), releaseDescriptor, releaseEnvironment.getSettings());
+
+                ScmProvider subProvider = scmRepositoryConfigurator.getRepositoryProvider( subRepo );
+
+                String tagName = project.getArtifactId() + "-" + releaseDescriptor.getProjectReleaseVersion(projectKey);
+
+                // FIXME no idea which of these is the one that worked
+                subParms.setString(CommandParameter.TAG_NAME, tagName);
+                subParms.setString(CommandParameter.BRANCH, tagName);
+                subParms.setString(CommandParameter.BRANCH_NAME, tagName);
+
+                // technically you could have something like ../<root-basedir>/a/b/c/<sub-checkout-dir>/d/e/f/pom.xml
+                // but it seems reasonable to assume that no one should be adding a, b or c, so we can assume
+                // .../<root-basedir>/<sub-checkout-dir>/...
+                // This will blow up interestingly if sub-checkout-dir is not within root-basedir
+                File subDir;
+                for(subDir = project.getBasedir(); !subDir.getParentFile().equals(rootProject.getBasedir()); subDir = subDir.getParentFile());
+
+                final File basedir = new File(checkoutDirectory, subDir.getName());
+        getLogger()
+            .info(
+                String.format(
+                    "Checking out submodule %s at %s:%s to %s",
+                    project.getArtifactId(),
+                    releaseDescriptor.getOriginalScmInfo(projectKey).getConnection(),
+                    tagName,
+                    basedir.getAbsoluteFile()));
+
+                CheckOutScmResult subResult = subProvider.checkOut(subRepo, new ScmFileSet(basedir),
+                                                                   new ScmTag( tagName ), subParms );
+                if(!subResult.isSuccess()) {
+                    throw new ReleaseScmCommandException( "Unable to checkout from SCM", subResult );
+                }
+            }
+        }
 
         if ( !scmResult.isSuccess() )
         {

@@ -21,7 +21,7 @@ package org.apache.maven.shared.release.phase;
 
 import java.io.File;
 import java.util.List;
-
+import org.apache.maven.artifact.ArtifactUtils;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.scm.ScmException;
 import org.apache.maven.scm.ScmFileSet;
@@ -136,6 +136,52 @@ public class ScmTagPhase
         catch ( ScmException e )
         {
             throw new ReleaseExecutionException( "An error is occurred in the tag process: " + e.getMessage(), e );
+        }
+
+
+
+        if (releaseDescriptor.isCommitByProject()) {
+            for (MavenProject project : reactorProjects) {
+
+                final String projectKey = ArtifactUtils.versionlessKey(project.getGroupId(), project.getArtifactId());
+                try {
+                    ScmFileSet fileSet = new ScmFileSet(project.getFile().getParentFile());
+                    ScmRepository subRepo =
+                        scmRepositoryConfigurator.getConfiguredRepository(
+                            releaseDescriptor.getOriginalScmInfo(projectKey).getConnection(), releaseDescriptor, releaseEnvironment.getSettings());
+                    subRepo.getProviderRepository().setPushChanges( releaseDescriptor.isPushChanges() );
+
+                    subRepo.getProviderRepository().setWorkItem( releaseDescriptor.getWorkItem() );
+
+                    ScmProvider subProvider = scmRepositoryConfigurator.getRepositoryProvider( subRepo );
+
+                    String tagName = project.getArtifactId() + "-" + releaseDescriptor.getProjectReleaseVersion(projectKey);
+
+                    logInfo( relResult, "Tagging " + project.getArtifactId() + " release with the label " +
+                                        releaseDescriptor.getScmReleaseLabel() + " in " + releaseDescriptor.getOriginalScmInfo(projectKey).getConnection() + "..." );
+
+                    ScmTagParameters scmTagParameters =
+                        new ScmTagParameters( releaseDescriptor.getScmCommentPrefix() + "copy for tag " + tagName );
+                    scmTagParameters.setRemoteTagging( releaseDescriptor.isRemoteTagging() );
+                    scmTagParameters.setScmRevision( "HEAD");  //FIXME 1
+                    scmTagParameters.setPinExternals( releaseDescriptor.isPinExternals() );
+                    if ( getLogger().isDebugEnabled() )
+                    {
+                        getLogger().debug(
+                            "ScmTagPhase :: scmTagParameters remotingTag " + releaseDescriptor.isRemoteTagging() );
+                        getLogger().debug(
+                            "ScmTagPhase :: scmTagParameters scmRevision " + "HEAD" );  // FIXME 1
+                        getLogger().debug(
+                            "ScmTagPhase :: scmTagParameters pinExternals " + releaseDescriptor.isPinExternals() );
+                        getLogger().debug( "ScmTagPhase :: fileSet  " + fileSet );
+                    }
+                    result = subProvider.tag( subRepo, fileSet, tagName, scmTagParameters );
+
+                } catch (Exception e) {
+                    throw new RuntimeException("Error tagging sub repo for " + project.getArtifactId() + " -- " +
+                                               releaseDescriptor.getOriginalScmInfo(projectKey).getConnection(), e);
+                }
+            }
         }
 
         if ( !result.isSuccess() )

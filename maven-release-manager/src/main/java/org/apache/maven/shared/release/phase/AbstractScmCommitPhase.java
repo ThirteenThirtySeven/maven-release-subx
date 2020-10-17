@@ -19,6 +19,11 @@ package org.apache.maven.shared.release.phase;
  * under the License.
  */
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import org.apache.maven.artifact.ArtifactUtils;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.scm.ScmException;
 import org.apache.maven.scm.ScmFileSet;
@@ -37,11 +42,6 @@ import org.apache.maven.shared.release.scm.ReleaseScmCommandException;
 import org.apache.maven.shared.release.scm.ReleaseScmRepositoryException;
 import org.apache.maven.shared.release.scm.ScmRepositoryConfigurator;
 import org.apache.maven.shared.release.util.ReleaseUtil;
-
-import java.io.File;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
 
 /**
  * Holds the basic concept of committing changes to the current working copy.
@@ -112,6 +112,7 @@ public abstract class AbstractScmCommitPhase
         ScmProvider provider;
         try
         {
+            getLogger().debug("Root project SCM URL: " + releaseDescriptor.getScmSourceUrl());
             repository = scmRepositoryConfigurator.getConfiguredRepository( releaseDescriptor,
                                                                             releaseEnvironment.getSettings() );
 
@@ -130,15 +131,27 @@ public abstract class AbstractScmCommitPhase
             throw new ReleaseExecutionException( "Unable to configure SCM repository: " + e.getMessage(), e );
         }
 
-        if ( releaseDescriptor.isCommitByProject() )
-        {
-            for ( MavenProject project : reactorProjects )
-            {
-                List<File> pomFiles = createPomFiles( releaseDescriptor, project );
-                ScmFileSet fileSet = new ScmFileSet( project.getFile().getParentFile(), pomFiles );
+        if (releaseDescriptor.isCommitByProject()) {
+          for (MavenProject project : reactorProjects) {
+            try {
+              ScmRepository subRepo =
+                  scmRepositoryConfigurator.getConfiguredRepository(
+                      releaseDescriptor.getOriginalScmInfo(ArtifactUtils.versionlessKey(project.getGroupId(), project.getArtifactId() )).getConnection(), releaseDescriptor, releaseEnvironment.getSettings());
+                subRepo.getProviderRepository().setPushChanges( releaseDescriptor.isPushChanges() );
 
-                checkin( provider, repository, fileSet, releaseDescriptor, message );
+                subRepo.getProviderRepository().setWorkItem( releaseDescriptor.getWorkItem() );
+
+                ScmProvider subProvider = scmRepositoryConfigurator.getRepositoryProvider( subRepo );
+
+              List<File> pomFiles = createPomFiles(releaseDescriptor, project);
+              ScmFileSet fileSet = new ScmFileSet(project.getFile().getParentFile(), pomFiles);
+
+              checkin(subProvider, subRepo, fileSet, releaseDescriptor, message);
+            } catch (Exception e) {
+              throw new RuntimeException("Error with sub repo for " + project.getArtifactId() + " -- " +
+                  releaseDescriptor.getOriginalScmInfo(ArtifactUtils.versionlessKey(project.getGroupId(), project.getArtifactId() )).getConnection(), e);
             }
+          }
         }
         else
         {
