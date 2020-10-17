@@ -135,8 +135,7 @@ public class DefaultReleaseManager
 
           @Override
           public ReleaseDescriptorBuilder addProjectScmLabel(String key, String value) {
-            super.addProjectScmLabel(key, value);
-            getLogger().info("Setting proj scm label for " + key);
+            builder.addProjectScmLabel(key, value);
             return this;
           }
         });

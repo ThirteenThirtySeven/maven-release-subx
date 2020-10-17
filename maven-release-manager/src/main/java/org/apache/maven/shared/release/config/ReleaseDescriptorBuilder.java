@@ -433,7 +433,6 @@ public class ReleaseDescriptorBuilder
     public ReleaseDescriptorBuilder addProjectScmLabel( String key, String value )
     {
         releaseDescriptor.addProjectScmLabel( key, value );
-        new RuntimeException("Setting proj scm label for " + key + ": " + value).printStackTrace();
         return this;
     }
 

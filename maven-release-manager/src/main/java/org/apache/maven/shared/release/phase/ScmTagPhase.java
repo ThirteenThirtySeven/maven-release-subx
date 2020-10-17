@@ -142,7 +142,7 @@ public class ScmTagPhase
 
         if (releaseDescriptor.isCommitByProject()) {
             for (MavenProject project : reactorProjects) {
-
+                if(project == ReleaseUtil.getRootProject(reactorProjects)) continue;
                 final String projectKey = ArtifactUtils.versionlessKey(project.getGroupId(), project.getArtifactId());
                 try {
                     ScmFileSet fileSet = new ScmFileSet(project.getFile().getParentFile());
@@ -157,8 +157,8 @@ public class ScmTagPhase
 
                     String tagName = releaseDescriptor.getProjectScmLabel(projectKey);
 
-                    logInfo( relResult, "Tagging " + project.getArtifactId() + " release with the label " +
-                                        releaseDescriptor.getScmReleaseLabel() + " in " + releaseDescriptor.getOriginalScmInfo(projectKey).getConnection() + "..." );
+                    logInfo( relResult, "Tagging " +projectKey + " release with the label " +
+                                        tagName + " in " + releaseDescriptor.getOriginalScmInfo(projectKey).getConnection() + "..." );
 
                     ScmTagParameters scmTagParameters =
                         new ScmTagParameters( releaseDescriptor.getScmCommentPrefix() + "copy for tag " + tagName );

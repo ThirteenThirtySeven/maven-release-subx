@@ -235,8 +235,6 @@ public class InputVariablesPhase
         else
             releaseDescriptor.addProjectScmLabel(projectKey, tag);
 
-        getLogger()
-            .info(String.format("Tag for %s: %s over %s (%s)", projectKey, tag, releaseDescriptor.getProjectScmLabel(projectKey), project == rootProject));
       }
         }
 
