@@ -126,120 +126,118 @@ public class InputVariablesPhase
         ReleaseResult result = new ReleaseResult();
 
         // get the root project
-        MavenProject project = ReleaseUtil.getRootProject( reactorProjects );
+        MavenProject rootProject = ReleaseUtil.getRootProject( reactorProjects );
 
-        String tag = releaseDescriptor.getScmReleaseLabel();
+    for (MavenProject project : reactorProjects) {
+        final String projectKey = ArtifactUtils.versionlessKey(project.getGroupId(), project.getArtifactId());
+      String tag =
+          (project == rootProject)
+              ? releaseDescriptor.getScmReleaseLabel()
+              : releaseDescriptor.getProjectScmLabel(projectKey);
 
-        if ( tag == null )
-        {
-            // Must get default version from mapped versions, as the project will be the incorrect snapshot
-            String key = ArtifactUtils.versionlessKey( project.getGroupId(), project.getArtifactId() );
-            String releaseVersion = releaseDescriptor.getProjectReleaseVersion( key );
-            if ( releaseVersion == null )
-            {
-                throw new ReleaseExecutionException( "Project tag cannot be selected if version is not yet mapped" );
-            }
+      if (tag == null) {
+        // Must get default version from mapped versions, as the project will be the incorrect
+        // snapshot
+        String key = ArtifactUtils.versionlessKey(project.getGroupId(), project.getArtifactId());
+        String releaseVersion = releaseDescriptor.getProjectReleaseVersion(key);
+        if (releaseVersion == null) {
+          throw new ReleaseExecutionException(
+              "Project tag cannot be selected if version is not yet mapped");
+        }
 
-            String suggestedName;
-            String scmTagNameFormat = releaseDescriptor.getScmTagNameFormat();
-            if ( releaseDescriptor.getProjectNamingPolicyId() != null )
-            {
-                try
-                {
-                    suggestedName =
-                        resolveSuggestedName( releaseDescriptor.getProjectNamingPolicyId(), releaseVersion, project );
-                }
-                catch ( PolicyException e )
-                {
-                    throw new ReleaseExecutionException( e.getMessage(), e );
-                }
-            }
-            else if ( scmTagNameFormat != null )
-            {
-                Interpolator interpolator = new StringSearchInterpolator( "@{", "}" );
-                List<String> possiblePrefixes = java.util.Arrays.asList( "project", "pom" );
-                Properties values = new Properties();
-                values.setProperty( "artifactId", project.getArtifactId() );
-                values.setProperty( "groupId", project.getGroupId() );
-                values.setProperty( "version", releaseVersion );
-                interpolator.addValueSource( new PrefixedPropertiesValueSource( possiblePrefixes, values, true ) );
-                RecursionInterceptor recursionInterceptor = new PrefixAwareRecursionInterceptor( possiblePrefixes );
-                try
-                {
-                    suggestedName = interpolator.interpolate( scmTagNameFormat, recursionInterceptor );
-                }
-                catch ( InterpolationException e )
-                {
-                    throw new ReleaseExecutionException(
-                        "Could not interpolate specified tag name format: " + scmTagNameFormat, e );
-                }
-            }
-            else
-            {
-                try
-                {
-                    suggestedName = resolveSuggestedName( defaultNamingPolicy, releaseVersion, project );
-                }
-                catch ( PolicyException e )
-                {
-                    throw new ReleaseExecutionException( e.getMessage(), e );
-                }
-            }
+        String suggestedName;
+        String scmTagNameFormat = releaseDescriptor.getScmTagNameFormat();
+        if (releaseDescriptor.getProjectNamingPolicyId() != null) {
+          try {
+            suggestedName =
+                resolveSuggestedName(
+                    releaseDescriptor.getProjectNamingPolicyId(), releaseVersion, project);
+          } catch (PolicyException e) {
+            throw new ReleaseExecutionException(e.getMessage(), e);
+          }
+        } else if (scmTagNameFormat != null) {
+          Interpolator interpolator = new StringSearchInterpolator("@{", "}");
+          List<String> possiblePrefixes = java.util.Arrays.asList("project", "pom");
+          Properties values = new Properties();
+          values.setProperty("artifactId", project.getArtifactId());
+          values.setProperty("groupId", project.getGroupId());
+          values.setProperty("version", releaseVersion);
+          interpolator.addValueSource(
+              new PrefixedPropertiesValueSource(possiblePrefixes, values, true));
+          RecursionInterceptor recursionInterceptor =
+              new PrefixAwareRecursionInterceptor(possiblePrefixes);
+          try {
+            suggestedName = interpolator.interpolate(scmTagNameFormat, recursionInterceptor);
+          } catch (InterpolationException e) {
+            throw new ReleaseExecutionException(
+                "Could not interpolate specified tag name format: " + scmTagNameFormat, e);
+          }
+        } else {
+          try {
+            suggestedName = resolveSuggestedName(defaultNamingPolicy, releaseVersion, project);
+          } catch (PolicyException e) {
+            throw new ReleaseExecutionException(e.getMessage(), e);
+          }
+        }
 
-            ScmProvider provider = null;
-            try
-            {
-                provider = getScmProvider( releaseDescriptor, releaseEnvironment );
-            }
-            catch ( ReleaseScmRepositoryException e )
-            {
-                throw new ReleaseExecutionException(
-                    "No scm provider can be found for url: " + releaseDescriptor.getScmSourceUrl(), e );
-            }
+        ScmProvider provider = null;
+        try {
+          provider = getScmProvider(releaseDescriptor, releaseEnvironment);
+        } catch (ReleaseScmRepositoryException e) {
+          throw new ReleaseExecutionException(
+              "No scm provider can be found for url: " + releaseDescriptor.getScmSourceUrl(), e);
+        }
 
-            suggestedName = provider.sanitizeTagName( suggestedName );
+        suggestedName = provider.sanitizeTagName(suggestedName);
 
-            if ( releaseDescriptor.isInteractive() )
-            {
-                try
-                {
-                    if ( branchOperation )
-                    {
-                        tag = prompter.prompt( "What is the branch name for \"" + project.getName() + "\"? ("
-                            + project.getGroupId() + ":" + project.getArtifactId() + ")" );
-                        if ( StringUtils.isEmpty( tag ) )
-                        {
-                            throw new ReleaseExecutionException( "No branch name was given." );
-                        }
-                    }
-                    else
-                    {
-                        tag = prompter.prompt( "What is the SCM release tag or label for \"" + project.getName()
-                            + "\"? (" + project.getGroupId() + ":" + project.getArtifactId() + ")", suggestedName );
-                    }
-                }
-                catch ( PrompterException e )
-                {
-                    throw new ReleaseExecutionException( "Error reading version from input handler: " + e.getMessage(),
-                                                         e );
-                }
+        if (releaseDescriptor.isInteractive()) {
+          try {
+            if (branchOperation) {
+              tag =
+                  prompter.prompt(
+                      "What is the branch name for \""
+                          + project.getName()
+                          + "\"? ("
+                          + project.getGroupId()
+                          + ":"
+                          + project.getArtifactId()
+                          + ")");
+              if (StringUtils.isEmpty(tag)) {
+                throw new ReleaseExecutionException("No branch name was given.");
+              }
+            } else {
+              tag =
+                  prompter.prompt(
+                      "What is the SCM release tag or label for \""
+                          + project.getName()
+                          + "\"? ("
+                          + project.getGroupId()
+                          + ":"
+                          + project.getArtifactId()
+                          + ")",
+                      suggestedName);
             }
-            else if ( suggestedName == null )
-            {
-                if ( isBranchOperation() )
-                {
-                    throw new ReleaseExecutionException( "No branch name was given." );
-                }
-                else
-                {
-                    throw new ReleaseExecutionException( "No tag name was given." );
-                }
-            }
-            else
-            {
-                tag = suggestedName;
-            }
-            releaseDescriptor.setScmReleaseLabel( tag );
+          } catch (PrompterException e) {
+            throw new ReleaseExecutionException(
+                "Error reading version from input handler: " + e.getMessage(), e);
+          }
+        } else if (suggestedName == null) {
+          if (isBranchOperation()) {
+            throw new ReleaseExecutionException("No branch name was given.");
+          } else {
+            throw new ReleaseExecutionException("No tag name was given.");
+          }
+        } else {
+          tag = suggestedName;
+        }
+        if(project == rootProject)
+            releaseDescriptor.setScmReleaseLabel(tag);
+        else
+            releaseDescriptor.addProjectScmLabel(projectKey, tag);
+
+        getLogger()
+            .info(String.format("Tag for %s: %s over %s (%s)", projectKey, tag, releaseDescriptor.getProjectScmLabel(projectKey), project == rootProject));
+      }
         }
 
         result.setResultCode( ReleaseResult.SUCCESS );

@@ -255,7 +255,7 @@ public class CheckoutProjectFromScm
 
                 ScmProvider subProvider = scmRepositoryConfigurator.getRepositoryProvider( subRepo );
 
-                String tagName = project.getArtifactId() + "-" + releaseDescriptor.getProjectReleaseVersion(projectKey);
+                String tagName =releaseDescriptor.getProjectScmLabel(projectKey);
 
                 // FIXME no idea which of these is the one that worked
                 subParms.setString(CommandParameter.TAG_NAME, tagName);

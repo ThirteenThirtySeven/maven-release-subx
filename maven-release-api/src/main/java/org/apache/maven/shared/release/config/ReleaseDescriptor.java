@@ -20,7 +20,7 @@ package org.apache.maven.shared.release.config;
  */
 
 import java.util.List;
-
+import java.util.Map;
 import org.apache.maven.model.Scm;
 
 /**
@@ -442,6 +442,10 @@ public interface ReleaseDescriptor
 
     String getProjectReleaseVersion( String key );
 
+    String getProjectScmLabel(String key);
+
+    Map<String, String> getProjectScmLabels();
+
     /**
      * @return the original {@code Scm} information.
      *
@@ -449,7 +453,9 @@ public interface ReleaseDescriptor
      */
     Scm getOriginalScmInfo( String projectKey );
 
-    // Modifiable
+  // Modifiable
+  void addProjectScmLabel(String versionlessKey, String tag);
+
     void addDependencyOriginalVersion( String versionlessKey, String string );
 
     void addDependencyReleaseVersion( String versionlessKey, String version );

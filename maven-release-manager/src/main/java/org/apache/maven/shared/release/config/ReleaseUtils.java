@@ -199,6 +199,11 @@ public class ReleaseUtils
                 builder.addDevelopmentVersion( property.substring( "project.dev.".length() ),
                                                          properties.getProperty( property ) );
             }
+            else if (property.startsWith("project.tag."))
+            {
+                builder.addProjectScmLabel(
+                    property.substring("project.tag.".length()), properties.getProperty(property));
+            }
             else if ( property.startsWith( "dependency.rel." ) )
             {
                 builder.addDependencyReleaseVersion( property.substring( "dependency.rel.".length() ),

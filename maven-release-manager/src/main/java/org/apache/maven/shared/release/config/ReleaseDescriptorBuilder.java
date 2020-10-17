@@ -19,8 +19,9 @@ package org.apache.maven.shared.release.config;
  * under the License.
  */
 
+import java.util.HashMap;
 import java.util.List;
-
+import java.util.Map;
 import org.apache.maven.model.Scm;
 
 /**
@@ -41,8 +42,27 @@ public class ReleaseDescriptorBuilder
         private BuilderReleaseDescriptor()
         {
         }
+
+        private Map<String, String> scmLabels = new HashMap<>();
+
+        @Override
+        public String getProjectScmLabel(String key) {
+      return scmLabels.get(key);
+        }
+
+        @Override
+        public Map<String, String> getProjectScmLabels() {
+      return scmLabels;
+        }
+
+        @Override
+        public void addProjectScmLabel(String versionlessKey, String tag) {
+      scmLabels.put(versionlessKey, tag);
+        }
     }
-    
+
+
+
     private final BuilderReleaseDescriptor releaseDescriptor;
     
     public ReleaseDescriptorBuilder()
@@ -409,6 +429,14 @@ public class ReleaseDescriptorBuilder
         releaseDescriptor.addDevelopmentVersion( key, value );
         return this;
     }
+
+    public ReleaseDescriptorBuilder addProjectScmLabel( String key, String value )
+    {
+        releaseDescriptor.addProjectScmLabel( key, value );
+        new RuntimeException("Setting proj scm label for " + key + ": " + value).printStackTrace();
+        return this;
+    }
+
 
     public ReleaseDescriptorBuilder addOriginalScmInfo( String key, Scm value )
     {

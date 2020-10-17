@@ -155,7 +155,7 @@ public class ScmTagPhase
 
                     ScmProvider subProvider = scmRepositoryConfigurator.getRepositoryProvider( subRepo );
 
-                    String tagName = project.getArtifactId() + "-" + releaseDescriptor.getProjectReleaseVersion(projectKey);
+                    String tagName = releaseDescriptor.getProjectScmLabel(projectKey);
 
                     logInfo( relResult, "Tagging " + project.getArtifactId() + " release with the label " +
                                         releaseDescriptor.getScmReleaseLabel() + " in " + releaseDescriptor.getOriginalScmInfo(projectKey).getConnection() + "..." );

@@ -288,6 +288,10 @@ public class PropertiesReleaseDescriptorStore
             }
         }
 
+        for(Map.Entry<String, String> entry : config.getProjectScmLabels().entrySet()) {
+            properties.setProperty("project.tag." + entry.getKey(), entry.getValue());
+        }
+
         for ( Map.Entry<String, Scm> entry : config.getOriginalScmInfo().entrySet() )
         {
             Scm scm = entry.getValue();
