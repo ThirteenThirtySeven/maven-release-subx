@@ -391,12 +391,30 @@ public abstract class AbstractRewritePomsPhase
                                   ReleaseDescriptor releaseDescriptor, boolean simulate )
         throws ReleaseFailureException
     {
+
         String parentVersion = null;
         if ( project.hasParent() )
+
         {
+
+
+
             MavenProject parent = project.getParent();
             String key = ArtifactUtils.versionlessKey( parent.getGroupId(), parent.getArtifactId() );
             parentVersion = getNextVersion( releaseDescriptor, key );
+
+      getLogger()
+          .info(
+              String.format(
+                  "Processing parent for %s:%s (%s:%s->%s) (relversion: %s) (updatedeps: %s)",
+                  project.getArtifactId(),
+                  project.getVersion(),
+                  project.getParent().getArtifactId(),
+                  project.getParent().getVersion(),
+                  parentVersion,
+                  releaseDescriptor.getProjectReleaseVersion(key),
+                  releaseDescriptor.isUpdateDependencies()));
+
             if ( parentVersion == null )
             {
                 //MRELEASE-317
@@ -413,6 +431,17 @@ public abstract class AbstractRewritePomsPhase
             else
             {
                 targetModel.getParent().setVersion( parentVersion );
+            }
+
+            // if this is the snapshot -> snapshot rewrite phase
+            if ( parentVersion != null
+                 && parentVersion.endsWith( Artifact.SNAPSHOT_VERSION )
+                 && parent.getVersion().endsWith( Artifact.SNAPSHOT_VERSION )
+                 && !releaseDescriptor.isUpdateDependencies() )
+            {
+                getLogger().info("Leaving parent at release version");
+                targetModel.getParent().setVersion( releaseDescriptor.getProjectReleaseVersion(key) );
+                return releaseDescriptor.getProjectReleaseVersion(key);
             }
         }
         return parentVersion;
